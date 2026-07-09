@@ -1,0 +1,796 @@
+You are working in my local repository. Build a realtime Arc Network quant-style agent dashboard inspired by a professional trading terminal UI.
+
+This project is specifically for Circle Arc Network / Arc Testnet, not Arc Browser.
+
+My hardware and model setup:
+- Laptop gaming
+- RAM: 16GB
+- GPU: GTX 1650 4GB
+- Local Ollama models:
+  - qwen2.5-coder:7b
+  - nomic-embed-text
+- I only have a free Groq API key from https://console.groq.com/keys
+- I do NOT have paid OpenAI API.
+- Do not require OpenAI API.
+- Build a practical local MVP, not a heavy production system.
+
+Main goal:
+Build a realtime dashboard like a quant/trading agent terminal, but specialized for Arc Testnet and USDC testnet trading simulation.
+
+Important scope:
+- This is TESTNET ONLY.
+- This is NOT real-money trading.
+- This is NOT investment advice.
+- Do not connect to mainnet.
+- Do not integrate centralized exchange trading.
+- Do not promise profits or real PnL.
+- The dashboard may simulate trading using USDC-denominated testnet/paper balances.
+- If no real Arc testnet DEX/router contract is configured, all “trades” must be paper/simulated trades only.
+- Optional on-chain mode may log trade intents or testnet execution records, but only after explicit user confirmation through wallet.
+- Never auto-send transactions.
+- Never ask the user to paste private keys.
+- Never print secrets.
+- Never send private keys, seed phrases, API keys, or .env secrets to Groq/Ollama.
+
+Official Arc sources to reference:
+- https://www.arc.io/
+- https://community.arc.io/home
+- https://docs.arc.io/
+- https://docs.arc.io/llms.txt
+- https://docs.arc.io/arc/references/connect-to-arc
+- https://docs.arc.io/arc/references/gas-and-fees
+- https://docs.arc.io/arc/references/evm-differences
+- https://docs.arc.io/arc/references/contract-addresses
+- https://docs.arc.io/arc/references/sample-applications
+- https://github.com/circlefin/skills/blob/master/plugins/circle/skills/use-arc/SKILL.md
+- https://github.com/circlefin/arc-node
+- https://github.com/AbstrusImad/genfeed
+- https://abstrusimad.github.io/genfeed/
+
+Use GenFeed only as inspiration for skill/docs/installer structure. Do not copy its code.
+
+Arc Network constants:
+- Network name: Arc Testnet
+- Chain ID: 5042002
+- RPC: https://rpc.testnet.arc.network
+- Explorer: https://testnet.arcscan.app
+- Native currency symbol: USDC
+- Native gas token: USDC
+- Native USDC / gas / msg.value uses 18 decimals.
+- ERC-20 USDC interface uses 6 decimals.
+- ERC-20 USDC testnet address:
+  0x3600000000000000000000000000000000000000
+- Never mix raw 18-decimal native values with 6-decimal ERC-20 values.
+- Use parseUnits(amount, 6) for ERC-20 USDC.
+- Only use parseUnits(amount, 18) or native value logic for native USDC/gas.
+
+Create this project structure:
+
+README.md
+.env.example
+.gitignore
+package.json
+tsconfig.json
+next.config.mjs
+postcss.config.mjs
+tailwind.config.ts
+AGENTS.md
+
+app/
+  layout.tsx
+  page.tsx
+  globals.css
+  api/
+    agent/
+      route.ts
+    arc/
+      balance/
+        route.ts
+      gas/
+        route.ts
+    docs/
+      route.ts
+    market/
+      route.ts
+    trade/
+      route.ts
+
+components/
+  dashboard/
+    TerminalHeader.tsx
+    MetricCard.tsx
+    ExecutionCycle.tsx
+    StrategyDecisionTree.tsx
+    MarketChart.tsx
+    RobustnessMatrix.tsx
+    PnlGrowthChart.tsx
+    MonteCarloPanel.tsx
+    LiveFeed.tsx
+    AgentConsole.tsx
+    WalletPanel.tsx
+    RiskPanel.tsx
+    TradeControls.tsx
+    ModelStatus.tsx
+  ui/
+    Button.tsx
+    Card.tsx
+    Badge.tsx
+    Input.tsx
+
+lib/
+  arc/
+    chain.ts
+    constants.ts
+    usdc.ts
+    wallet.ts
+    explorer.ts
+    rpc.ts
+  agent/
+    systemPrompt.ts
+    modelRouter.ts
+    groqClient.ts
+    ollamaClient.ts
+    redactSecrets.ts
+    types.ts
+  trading/
+    marketSimulator.ts
+    strategyEngine.ts
+    executionCycle.ts
+    riskEngine.ts
+    positionSizing.ts
+    pnlEngine.ts
+    monteCarlo.ts
+    tradeStore.ts
+    types.ts
+  docs/
+    searchArcDocs.ts
+    refreshArcDocs.ts
+    chunkText.ts
+    embedDocs.ts
+    vectorStore.ts
+    cosine.ts
+  utils/
+    format.ts
+    time.ts
+    logger.ts
+    safeJson.ts
+
+docs/
+  arc/
+    arc-cheatsheet.md
+    arc-links.md
+    arc-evm-differences.md
+    arc-project-review-checklist.md
+    arc-llms-latest.txt
+
+scripts/
+  check-arc-config.mjs
+  refresh-arc-docs.mjs
+  seed-sim-data.mjs
+
+contracts/
+  README.md
+  ArcTradeIntentLedger.sol
+  interfaces/
+    IERC20USDC.sol
+
+.agents/
+  skills/
+    use-arc-quant-dashboard/
+      SKILL.md
+      references/
+        arc-cheatsheet.md
+        arc-links.md
+        arc-evm-differences.md
+        arc-project-review-checklist.md
+        arc-quant-dashboard-spec.md
+      scripts/
+        check-arc-config.mjs
+        refresh-arc-docs.mjs
+
+Do not overwrite user files blindly. If files already exist, merge safely.
+
+UI goal:
+Build a dashboard visually inspired by a quant terminal like the reference clip/image:
+- Retro terminal / institutional quant dashboard feel.
+- Dense but readable.
+- Off-white, pale green, muted black, muted gray, subtle red/green signals.
+- Monospace typography.
+- Thin bordered panels.
+- Realtime updating values.
+- No childish crypto UI.
+- No casino style.
+- Clearly label everything as SIM / TESTNET.
+- The UI should feel like:
+  “Arc USDC Testnet Agent Terminal”.
+
+Dashboard sections:
+
+1. Top terminal header:
+- Project name: ARC QUANT AGENT
+- Mode: TESTNET / SIMULATION
+- Wallet status
+- Arc chain ID
+- RPC status
+- Model provider status: Ollama / Groq / fallback
+- Current UTC time
+- Local uptime
+
+2. KPI cards:
+- Testnet wallet address
+- ERC-20 USDC balance
+- Native USDC gas balance
+- Simulated all-time PnL
+- Number of simulated trades
+- Win rate
+- Average R/R
+- Risk score
+- Current phase
+- Last testnet transaction hash if available
+
+3. Execution cycle:
+Display these phases horizontally:
+Scan → Detect → Validate → Size → Fill → Settle
+
+Each phase should animate or highlight as the engine runs.
+
+Meaning:
+- Scan: read Arc RPC, wallet balances, simulated market feed, docs/checklist.
+- Detect: identify simulated signal or Arc config issue.
+- Validate: check risk, wallet, decimals, USDC balance, allowance, chain ID.
+- Size: calculate USDC notional using risk rules.
+- Fill: paper fill by default; optional on-chain intent logging only after user confirmation.
+- Settle: update PnL, live feed, explorer link, risk state.
+
+4. Strategy decision tree:
+Render a decision tree like:
+Market Tick
+→ Scan
+→ Classify
+→ Signal Confidence
+→ Misprice / Momentum / Mean Reversion / No Trade
+→ Validate Risk
+→ Size
+→ Fill
+→ PnL / Hold / Reject
+
+It should update with current simulated trade reason.
+
+5. Market chart:
+- Use simulated USDC-denominated pairs:
+  BTC/USDC-SIM
+  ETH/USDC-SIM
+  SOL/USDC-SIM
+  ARC-GAS/USDC-SIM
+- Use generated candlestick-like or line chart data.
+- If implementing candlesticks is too slow, use line chart first.
+- Must update every few seconds.
+
+6. Robustness matrix:
+Show assets/timeframes with green/red/neutral performance cells:
+- BTC/USDC-SIM
+- ETH/USDC-SIM
+- SOL/USDC-SIM
+- GAS/USDC-SIM
+Timeframes:
+- 1m, 5m, 15m, 1h
+
+7. PnL growth:
+- Show simulated PnL growth chart.
+- Clearly label “SIMULATED PNL”.
+- Do not show as real profit.
+
+8. Monte Carlo panel:
+- Run lightweight Monte Carlo simulation locally.
+- Use current simulated strategy stats.
+- Show expected drawdown, expected return, 5th percentile, 95th percentile.
+- Keep this lightweight for 16GB RAM.
+- No heavy compute.
+
+9. Live feed:
+Show realtime feed:
+- Agent scan result
+- Detected signal
+- Risk validation
+- Paper trade fill
+- Arc RPC status
+- USDC balance check
+- Decimal warning
+- Model fallback event
+- Testnet tx submitted/confirmed, if any
+
+10. Agent console:
+- User can ask:
+  “Explain current signal”
+  “Why did you reject this trade?”
+  “Check Arc config”
+  “Explain USDC decimals”
+  “Review this simulated trade”
+- Use Groq if available for hard reasoning.
+- Use Ollama qwen2.5-coder:7b by default/fallback.
+- Redact secrets.
+- Never send .env secrets.
+
+Trading engine requirements:
+
+1. Simulation-first:
+- Default mode: SIMULATION_ONLY=true.
+- Paper trading only by default.
+- Use fake initial testnet/paper balance:
+  SIM_STARTING_USDC=10000
+- Simulated trades must be USDC-denominated.
+- PnL is simulated only.
+
+2. Signal generation:
+Implement 3 simple strategies:
+- Momentum
+- Mean reversion
+- Volatility breakout
+
+Each strategy should output:
+- action: BUY / SELL / HOLD
+- confidence: 0-100
+- notionalUsdc6
+- stopLoss
+- takeProfit
+- reason
+- riskFlags
+
+3. Risk engine:
+Implement these rules:
+- Max position size percent of simulated account.
+- Max daily loss.
+- Max consecutive losses.
+- Minimum confidence threshold.
+- Do not trade if RPC unhealthy.
+- Do not trade if wrong chain ID.
+- Do not trade if USDC decimal ambiguity detected.
+- Do not trade if wallet disconnected when on-chain mode is requested.
+- Do not trade if user has not confirmed on-chain transaction.
+- Do not trade if mode is REAL_TRADING_DISABLED=true.
+
+4. Position sizing:
+- Use USDC 6 decimals for ERC-20 USDC notional.
+- Use helper functions:
+  toUsdc6(amountString)
+  fromUsdc6(raw)
+  toNativeUsdc18(amountString)
+  fromNativeUsdc18(raw)
+- Include tests or examples to prove 6 vs 18 decimal behavior.
+
+5. Execution modes:
+Implement:
+- paper mode:
+  fills simulated trade locally.
+- testnet-intent mode:
+  logs a trade intent to a local store and optionally to an Arc Testnet contract.
+- testnet-contract mode:
+  only available if user sets NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true.
+  Must require explicit browser wallet confirmation.
+  Must never use private keys in frontend.
+  Must clearly warn before any transaction.
+
+6. Do NOT implement:
+- mainnet trading
+- CEX trading
+- hidden auto-trading
+- private key based automatic trading
+- leverage
+- lending against real collateral
+- real profit claims
+
+Arc integration requirements:
+
+1. Wallet:
+- Use browser injected wallet if available.
+- Support connecting to MetaMask/Rabby-like wallet through window.ethereum.
+- Verify chain ID is 5042002.
+- If wrong network, show “Switch to Arc Testnet”.
+- Provide function to request wallet switch/add Arc Testnet.
+- Do not require WalletConnect.
+
+2. Arc chain config:
+Create lib/arc/chain.ts with:
+- Arc Testnet config for viem.
+- chain ID 5042002.
+- RPC https://rpc.testnet.arc.network.
+- nativeCurrency USDC.
+- explorer https://testnet.arcscan.app.
+
+3. Balances:
+Show:
+- native USDC gas balance using getBalance.
+- ERC-20 USDC balance using ERC-20 interface at:
+  0x3600000000000000000000000000000000000000
+- Use 18 decimals for native balance display.
+- Use 6 decimals for ERC-20 USDC display.
+
+4. Explorer:
+Create helper:
+getExplorerTxUrl(hash)
+getExplorerAddressUrl(address)
+
+5. RPC health:
+API route should check:
+- can call eth_chainId
+- can call eth_blockNumber
+- chain ID equals 5042002
+- latency in ms
+
+6. Testnet contract:
+Create contracts/ArcTradeIntentLedger.sol:
+- Testnet-only.
+- Stores trade intents/events.
+- Does not claim real execution.
+- Emits event:
+  TradeIntentCreated(address indexed user, string market, string side, uint256 notionalUsdc6, uint256 confidence, string reason)
+- Include comments:
+  “TESTNET / SIMULATION ONLY”
+- Do not custody funds in MVP.
+- Do not auto-execute swaps.
+- Include minimal interface file IERC20USDC.sol for future use but do not require deposit.
+
+7. Contract UI:
+If contract address is not configured, dashboard should still work.
+If NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS is configured, allow user to log intent on Arc Testnet.
+Before logging, show confirmation:
+“This only logs a testnet trade intent. It is not real trading.”
+
+Agent/model requirements:
+
+1. Model routing:
+- Use Ollama by default:
+  OLLAMA_BASE_URL=http://localhost:11434
+  LOCAL_CHAT_MODEL=qwen2.5-coder:7b
+  LOCAL_EMBED_MODEL=nomic-embed-text
+- Groq optional:
+  GROQ_API_KEY=
+  GROQ_MODEL=qwen/qwen3-coder
+- If GROQ_API_KEY exists and task is complex, use Groq.
+- If Groq errors or rate-limits, fallback to Ollama.
+- No OpenAI API.
+- Prefer direct fetch to Groq OpenAI-compatible endpoint:
+  https://api.groq.com/openai/v1/chat/completions
+- Do not use LangChain.
+- Do not use a heavy vector DB.
+- Use local JSON vector store.
+
+2. Agent system prompt:
+The agent must:
+- Specialize in Arc Network / Arc Testnet.
+- Explain USDC gas and decimals correctly.
+- Never claim simulated PnL is real.
+- Refuse mainnet/real-money automation.
+- Explain trade signals as educational/testnet simulation.
+- Check Arc config before on-chain actions.
+- Require explicit confirmation before any testnet transaction.
+- Redact secrets.
+- Use official Arc docs if available.
+
+3. Docs search:
+- Search docs/arc local files.
+- If embeddings exist, use vector search.
+- If not, fallback to keyword search.
+- Use nomic-embed-text via Ollama for embeddings.
+- Implement npm script to embed docs.
+
+Reference docs:
+
+Create:
+docs/arc/arc-cheatsheet.md
+docs/arc/arc-links.md
+docs/arc/arc-evm-differences.md
+docs/arc/arc-project-review-checklist.md
+
+Also copy same content to:
+.agents/skills/use-arc-quant-dashboard/references/
+
+Docs should include:
+- Arc identity
+- Arc Testnet config
+- USDC gas
+- Native USDC 18 decimals vs ERC-20 USDC 6 decimals
+- Common mistakes
+- Wallet setup
+- Faucet/explorer references
+- EVM differences
+- Arc-ready checklist
+- Testnet-only warning
+
+Scripts:
+
+1. scripts/check-arc-config.mjs:
+Dependency-free Node script.
+Scan files:
+.ts, .tsx, .js, .jsx, .sol, .toml, .json, .md, .env.example
+
+Ignore:
+node_modules, .git, dist, build, out, .next, coverage
+
+Detect:
+- wrong Arc chain ID
+- wrong Arc RPC
+- nativeCurrency set to ETH
+- parseEther/formatEther near ERC-20 USDC transfer
+- missing ERC-20 USDC address when USDC is used
+- hardcoded private keys
+- seed phrases
+- bearer tokens
+- API keys
+- committed .env with real-looking secrets
+- code that claims real PnL/profit
+- code that enables mainnet trading
+
+Output:
+PASS, WARN, FAIL
+
+Exit:
+0 if no FAIL
+1 if any FAIL
+
+Also copy this script to:
+.agents/skills/use-arc-quant-dashboard/scripts/check-arc-config.mjs
+
+2. scripts/refresh-arc-docs.mjs:
+Dependency-free Node script.
+Fetch:
+https://docs.arc.io/llms.txt
+
+Save to:
+docs/arc/arc-llms-latest.txt
+
+Also copy to:
+.agents/skills/use-arc-quant-dashboard/references/arc-llms-latest.txt
+
+Fail gracefully if offline.
+
+Also copy this script to:
+.agents/skills/use-arc-quant-dashboard/scripts/refresh-arc-docs.mjs
+
+3. scripts/seed-sim-data.mjs:
+Generate initial simulated market/trade data if needed.
+
+Codex skill:
+
+Create .agents/skills/use-arc-quant-dashboard/SKILL.md with this YAML frontmatter exactly:
+
+---
+name: use-arc-quant-dashboard
+description: Use this when building, reviewing, debugging, or extending a realtime Arc Network / Arc Testnet quant-style agent dashboard with USDC testnet simulation, wallet checks, Arc RPC, USDC gas, strategy engine, risk engine, paper trades, or testnet trade-intent logging. Do not use for Arc Browser or real-money trading.
+---
+
+Inside SKILL.md include:
+- Scope: Arc Network only, not Arc Browser.
+- Testnet-only rule.
+- No real money / no mainnet / no profit guarantee.
+- Arc Testnet config.
+- USDC native gas and decimal rules.
+- Dashboard UI requirements.
+- Trading engine workflow.
+- Execution cycle workflow.
+- Risk rules.
+- Wallet/RPC debug workflow.
+- On-chain testnet transaction confirmation rule.
+- Viem Arc Testnet config snippet.
+- USDC ERC-20 interface snippet.
+- Decimal helper examples.
+- Contract intent logging example.
+- Arc readiness checklist.
+
+package.json requirements:
+
+Use Next.js + TypeScript.
+
+Minimal dependencies:
+- next
+- react
+- react-dom
+- typescript
+- tsx
+- viem
+- recharts
+- lucide-react
+- clsx
+
+Avoid heavy dependencies:
+- no LangChain
+- no heavy vector database
+- no unnecessary UI framework
+- no OpenAI SDK
+
+Scripts:
+{
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "typecheck": "tsc --noEmit",
+  "arc:check": "node scripts/check-arc-config.mjs",
+  "arc:refresh-docs": "node scripts/refresh-arc-docs.mjs",
+  "arc:seed": "node scripts/seed-sim-data.mjs",
+  "arc:embed-docs": "tsx lib/docs/embedDocs.ts"
+}
+
+.env.example:
+Create .env.example with:
+
+# Model routing
+GROQ_API_KEY=
+GROQ_MODEL=qwen/qwen3-coder
+OLLAMA_BASE_URL=http://localhost:11434
+LOCAL_CHAT_MODEL=qwen2.5-coder:7b
+LOCAL_EMBED_MODEL=nomic-embed-text
+AGENT_PROVIDER=auto
+
+# Arc Testnet
+NEXT_PUBLIC_ARC_CHAIN_ID=5042002
+NEXT_PUBLIC_ARC_RPC_URL=https://rpc.testnet.arc.network
+NEXT_PUBLIC_ARC_EXPLORER_URL=https://testnet.arcscan.app
+NEXT_PUBLIC_ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
+
+# Safety modes
+SIMULATION_ONLY=true
+PAPER_TRADING_ONLY=true
+REAL_TRADING_DISABLED=true
+NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=false
+NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=
+
+# Simulation
+SIM_STARTING_USDC=10000
+SIM_TICK_MS=2500
+SIM_MAX_POSITION_PCT=5
+SIM_MAX_DAILY_LOSS_PCT=3
+SIM_MIN_CONFIDENCE=65
+
+README requirements:
+
+Create README.md explaining:
+- What this is:
+  Arc Quant Agent Dashboard, a local realtime testnet/simulation dashboard.
+- What it is not:
+  Not real trading, not investment advice, not mainnet, not production.
+- Hardware assumptions:
+  16GB RAM + qwen2.5-coder:7b + nomic-embed-text.
+- Install:
+  npm install
+- Ollama setup:
+  ollama pull qwen2.5-coder:7b
+  ollama pull nomic-embed-text
+- Groq setup:
+  copy .env.example to .env and fill GROQ_API_KEY optionally.
+- Run:
+  npm run dev
+- Check:
+  npm run arc:check
+- Refresh docs:
+  npm run arc:refresh-docs
+- Embed docs:
+  npm run arc:embed-docs
+- Explain modes:
+  paper mode
+  testnet-intent mode
+  testnet-contract mode
+- Explain safety:
+  no auto transaction
+  wallet confirmation required
+  testnet only
+  simulated PnL only
+- Explain Arc decimals:
+  Native USDC 18 decimals
+  ERC-20 USDC 6 decimals
+
+AGENTS.md:
+Create or update AGENTS.md with:
+
+## Arc Quant Agent Dashboard
+
+This repository includes the `use-arc-quant-dashboard` skill at `.agents/skills/use-arc-quant-dashboard/SKILL.md`.
+
+Use it for Arc Network / Arc Testnet / USDC gas / realtime dashboard / strategy simulation / paper trading / testnet trade-intent logging work.
+
+Do not use it for Arc Browser, mainnet trading, real-money automation, or profit guarantees.
+
+Before claiming Arc readiness, run:
+
+```bash
+npm run arc:check
+npm run typecheck
+npm run build
+```
+
+Implementation details:
+
+1. Frontend:
+- Use Next.js app router.
+- Use React client components for realtime dashboard widgets.
+- Use setInterval or requestAnimationFrame lightly.
+- Keep performance suitable for 16GB RAM.
+- No huge animations.
+- No websocket required for MVP.
+- Use simulated polling every 2-3 seconds.
+
+2. Styling:
+- Use Tailwind.
+- Create a retro terminal dashboard style.
+- Use monospace font stack.
+- Use CSS variables for colors.
+- Do not import paid fonts.
+- Make layout responsive but optimize for desktop.
+
+3. Charts:
+- Use Recharts.
+- One chart per panel.
+- Keep chart data arrays small.
+- Do not store unbounded history.
+
+4. State:
+- Keep local state simple.
+- No Redux.
+- Use React state/hooks and local modules.
+- Keep trade history capped, e.g. last 200 trades.
+
+5. API:
+- app/api/market/route.ts returns simulated market state.
+- app/api/trade/route.ts validates and returns simulated fill.
+- app/api/agent/route.ts routes questions to Groq/Ollama.
+- app/api/arc/gas/route.ts checks Arc RPC.
+- app/api/arc/balance/route.ts supports balance query by address.
+- app/api/docs/route.ts searches docs.
+
+6. Security:
+- Redact secrets before model calls.
+- Never send full .env to model.
+- Do not log secrets.
+- Do not require private key.
+- Do not include deployment automation that needs private key.
+- On-chain testnet transaction uses browser wallet only.
+
+7. Error handling:
+- If Ollama is not running, show clear message:
+  “Ollama unavailable. Start Ollama and pull qwen2.5-coder:7b.”
+- If Groq rate-limits, fallback to Ollama and log in live feed.
+- If Arc RPC fails, pause on-chain actions and continue simulation.
+- If wrong chain, show switch prompt.
+
+8. Testing/verification:
+- Add simple unit-like helper tests where practical, or at least runnable validation functions.
+- Verify decimal conversion helpers.
+- Verify check-arc-config script catches obvious mistakes.
+- Verify TypeScript passes.
+
+Final verification:
+After implementation:
+1. Run npm install.
+2. Run npm run typecheck.
+3. Run npm run arc:check.
+4. Run npm run build.
+5. If an error appears, fix it and rerun the failing command.
+6. Do not stop after first error unless it requires my decision.
+7. At the end, give me a final summary with:
+   - files created/changed
+   - how to run the dashboard
+   - how to connect wallet to Arc Testnet
+   - how paper trading works
+   - how testnet-intent mode works
+   - how Groq is used
+   - how Ollama fallback works
+   - how to refresh Arc docs
+   - how to run Arc checker
+   - current limitations
+
+Acceptance criteria:
+- `npm run dev` starts the dashboard.
+- Dashboard visually resembles a realtime quant terminal.
+- All trading labels clearly say SIM / TESTNET.
+- PnL is simulated only.
+- Arc Testnet config is correct.
+- USDC decimal rules are implemented.
+- Wallet balance panel can query native USDC and ERC-20 USDC.
+- Strategy engine produces simulated signals.
+- Risk engine can reject bad trades.
+- Execution cycle animates through Scan → Detect → Validate → Size → Fill → Settle.
+- Agent console can answer Arc/trade simulation questions using Groq/Ollama.
+- Groq fallback to Ollama works.
+- No OpenAI API is required.
+- No private key is required.
+- No mainnet trading exists.
+- `npm run arc:check` passes.

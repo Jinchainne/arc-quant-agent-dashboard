@@ -1,0 +1,1 @@
+Run `npm run arc:refresh-docs` to fetch the latest Arc llms.txt index.
