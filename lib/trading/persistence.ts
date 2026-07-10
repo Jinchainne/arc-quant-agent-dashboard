@@ -26,6 +26,7 @@ type PersistedStore = {
 };
 
 let loaded = false;
+let persistenceAvailable = true;
 
 function serialize() {
   const payload: PersistedStore = {
@@ -82,6 +83,18 @@ export async function ensureTradeStoreLoaded() {
 }
 
 export async function persistTradeStore() {
+  if (!persistenceAvailable) {
+    return;
+  }
+
   await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(storePath, JSON.stringify(serialize(), null, 2), "utf8");
+  try {
+    await fs.writeFile(storePath, JSON.stringify(serialize(), null, 2), "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EROFS") {
+      persistenceAvailable = false;
+      return;
+    }
+    throw error;
+  }
 }
