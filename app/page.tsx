@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { AgentConsole } from "@/components/dashboard/AgentConsole";
+import { AutoBotPanel } from "@/components/dashboard/AutoBotPanel";
 import { ContractPanel } from "@/components/dashboard/ContractPanel";
 import { ExecutionCycle } from "@/components/dashboard/ExecutionCycle";
 import { LiveFeed } from "@/components/dashboard/LiveFeed";
@@ -322,12 +323,21 @@ export default function Page() {
             <ModelStatus provider={provider} />
             <ContractPanel
               walletConnected={walletConnected}
+              chainId={chainId}
               ledgerAddress={ledgerAddress}
               deploymentTxHash={deploymentTxHash}
+              onDeploySubmitted={(txHash) => {
+                setDeploymentTxHash(txHash);
+              }}
               onLedgerDeployed={({ ledgerAddress: nextLedgerAddress, txHash }) => {
                 setLedgerAddress(nextLedgerAddress);
                 setDeploymentTxHash(txHash);
               }}
+            />
+            <AutoBotPanel
+              defaultLedgerAddress={ledgerAddress}
+              walletConnected={walletConnected}
+              onRefresh={() => refreshDashboard()}
             />
             <TradeControls
               onRefresh={() => refreshDashboard()}

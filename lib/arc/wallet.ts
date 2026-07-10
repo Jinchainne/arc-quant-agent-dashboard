@@ -113,7 +113,9 @@ export async function logTradeIntentWithBrowserWallet(input: {
   return hash;
 }
 
-export async function deployTradeIntentLedgerWithBrowserWallet() {
+export async function deployTradeIntentLedgerWithBrowserWallet(options?: {
+  onSubmitted?: (hash: `0x${string}`) => void;
+}) {
   if (typeof window === "undefined" || !window.ethereum) {
     throw new Error("Injected wallet not found.");
   }
@@ -135,12 +137,18 @@ export async function deployTradeIntentLedgerWithBrowserWallet() {
     transport: http(ARC_RPC_URL)
   });
 
-  const hash = await walletClient.deployContract({
+  const gas = await publicClient.estimateGas({
+    account: account as `0x${string}`,
+    data: arcTradeIntentLedgerArtifact.bytecode
+  });
+
+  const hash = await walletClient.sendTransaction({
     account: account as `0x${string}`,
     chain: arcTestnet,
-    abi: arcTradeIntentLedgerArtifact.abi,
-    bytecode: arcTradeIntentLedgerArtifact.bytecode
+    data: arcTradeIntentLedgerArtifact.bytecode,
+    gas
   });
+  options?.onSubmitted?.(hash);
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   const contractAddress = receipt.contractAddress;
