@@ -7,11 +7,11 @@ import {
 } from "@/lib/arc/constants";
 import type { MarketSymbol } from "@/lib/trading/types";
 import { toUsdc6 } from "@/lib/arc/usdc";
-import { ensureTradeStoreLoaded, persistTradeStore } from "@/lib/trading/persistence";
+import { persistTradeStore, reloadTradeStore } from "@/lib/trading/persistence";
 import { tradeStore } from "@/lib/trading/tradeStore";
 
 export async function POST(request: Request) {
-  await ensureTradeStoreLoaded();
+  await reloadTradeStore();
 
   const body = (await request.json()) as {
     action?: "prepare" | "confirm";

@@ -4,7 +4,7 @@ import { ARC_CHAIN_ID } from "@/lib/arc/constants";
 import { getBurnerSignerAddress } from "@/lib/arc/serverExecutor";
 import { getRpcHealth } from "@/lib/arc/rpc";
 import { runExecutionCycle } from "@/lib/trading/executionCycle";
-import { ensureTradeStoreLoaded } from "@/lib/trading/persistence";
+import { reloadTradeStore } from "@/lib/trading/persistence";
 import { tradeStore } from "@/lib/trading/tradeStore";
 import { toJsonSafe } from "@/lib/utils/jsonResponse";
 import { formatUnits } from "viem";
@@ -12,7 +12,7 @@ import { getArcBalances } from "@/lib/arc/rpc";
 
 export async function GET(request: NextRequest) {
   try {
-    await ensureTradeStoreLoaded();
+    await reloadTradeStore();
 
     const address =
       request.nextUrl.searchParams.get("address") ??

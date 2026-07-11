@@ -53,8 +53,8 @@ function serialize() {
   return payload;
 }
 
-export async function ensureTradeStoreLoaded() {
-  if (loaded) {
+async function loadTradeStore(force = false) {
+  if (loaded && !force) {
     return;
   }
 
@@ -83,6 +83,14 @@ export async function ensureTradeStoreLoaded() {
   }
 
   loaded = true;
+}
+
+export async function ensureTradeStoreLoaded() {
+  await loadTradeStore(false);
+}
+
+export async function reloadTradeStore() {
+  await loadTradeStore(true);
 }
 
 export async function persistTradeStore() {

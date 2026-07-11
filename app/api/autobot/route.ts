@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getBurnerSignerAddress } from "@/lib/arc/serverExecutor";
-import { ensureTradeStoreLoaded, persistTradeStore } from "@/lib/trading/persistence";
+import { persistTradeStore, reloadTradeStore } from "@/lib/trading/persistence";
 import { tradeStore } from "@/lib/trading/tradeStore";
 
 export async function GET() {
-  await ensureTradeStoreLoaded();
+  await reloadTradeStore();
 
   const latestPending = [...tradeStore.trades]
     .reverse()
@@ -29,7 +29,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  await ensureTradeStoreLoaded();
+  await reloadTradeStore();
 
   const body = (await request.json()) as {
     action?: "save" | "confirm-pending" | "reset-stats";
