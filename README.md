@@ -12,6 +12,7 @@ This repo is designed for builders, demos, hackathons, and local prototyping. It
 - Routes agent questions to local Ollama or Groq
 - Supports optional browser-wallet confirmation for testnet contract intent logging
 - Supports auto bot execution on Arc testnet with either manual wallet confirmation or burner-key signing
+- Supports a local 24/7 worker runner and a Vercel cron-driven runner path
 - Persists local simulation state to disk
 - Maintains an agent objective, planner output, blocker reason, and next action for each cycle
 
@@ -128,6 +129,18 @@ Open:
 http://localhost:3000
 ```
 
+To run the execution worker locally in a separate terminal:
+
+```bash
+npm run agent:runner
+```
+
+Single cycle smoke test:
+
+```bash
+npm run agent:once
+```
+
 ## Verification commands
 
 ```bash
@@ -208,6 +221,27 @@ The dashboard now supports two bot execution styles on Arc Testnet:
 - auto bot prepares and submits testnet intents directly from the server
 - requires `AUTO_BURNER_PRIVATE_KEY`
 - use only a disposable testnet wallet
+
+## 24/7 runner model
+
+There are now two real execution runner paths:
+
+1. `Local worker`
+- command: `npm run agent:runner`
+- loops continuously using `AGENT_RUNNER_INTERVAL_MS`
+- best choice when you want the bot to keep moving every few seconds on your own machine
+
+2. `Vercel cron`
+- configured in `vercel.json`
+- calls `/api/runner?force=1`
+- good for keeping the hosted demo alive
+- practical cadence is cron-based, so it is slower than the local worker
+
+Important behavior:
+
+- when auto bot is armed, the background runner becomes the main execution source
+- the dashboard still refreshes state, but runner metadata now shows whether cycles are really being executed
+- the `On-chain Activity` panel shows runner starts, prepared intents, tx submissions, pending status, and confirmations
 
 ## Agent controls
 
@@ -341,6 +375,8 @@ AI_API_KEY=...
 AI_BASE_URL=https://api.groq.com/openai/v1
 AI_MODEL=llama-3.3-70b-versatile
 AGENT_PROVIDER=auto
+CRON_SECRET=...
+RUNNER_SECRET=...
 ```
 
 Optional contract-mode envs for hosted demo:

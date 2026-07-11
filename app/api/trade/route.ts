@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { appendActivityLog } from "@/lib/agent/activityLog";
 import {
   ENABLE_TESTNET_CONTRACT_MODE,
   PAPER_TRADING_ONLY,
@@ -43,6 +44,17 @@ export async function POST(request: Request) {
 
     intent.status = "intent-logged";
     intent.txHash = body.txHash;
+    intent.chainStatus = "pending";
+    intent.submittedAt = Date.now();
+    intent.runnerSource = "manual-wallet";
+    appendActivityLog({
+      source: "manual-wallet",
+      kind: "tx",
+      status: "submitted",
+      message: `Manual wallet submitted ${intent.market} ${intent.side} to Arc testnet.`,
+      market: intent.market,
+      txHash: body.txHash
+    });
     await persistTradeStore();
 
     return NextResponse.json({
@@ -97,9 +109,18 @@ export async function POST(request: Request) {
       reason,
       mode,
       timestamp: Date.now(),
-      status: "intent-pending"
+      status: "intent-pending",
+      chainStatus: "prepared",
+      runnerSource: "manual-trade"
     }
   ];
+  appendActivityLog({
+    source: "manual-trade",
+    kind: "intent",
+    status: "prepared",
+    message: `Prepared ${market} ${side} intent for manual contract submission.`,
+    market: market as MarketSymbol
+  });
   tradeStore.feed = [
     {
       id: crypto.randomUUID(),

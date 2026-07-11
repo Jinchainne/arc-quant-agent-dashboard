@@ -2,6 +2,22 @@ import type { ARC_MARKETS, EXECUTION_PHASES } from "@/lib/arc/constants";
 
 export type ExecutionPhase = (typeof EXECUTION_PHASES)[number];
 export type MarketSymbol = (typeof ARC_MARKETS)[number];
+export type AgentTriggerSource =
+  | "dashboard"
+  | "local-runner"
+  | "vercel-cron"
+  | "manual-wallet"
+  | "manual-trade"
+  | "burner-executor"
+  | "api";
+export type ChainActivityStatus =
+  | "info"
+  | "prepared"
+  | "submitted"
+  | "pending"
+  | "confirmed"
+  | "reverted"
+  | "error";
 
 export type MarketCandle = {
   timestamp: number;
@@ -63,6 +79,21 @@ export type TradeRecord = {
   timestamp: number;
   status: "filled" | "rejected" | "intent-pending" | "intent-logged";
   txHash?: string;
+  chainStatus?: ChainActivityStatus;
+  submittedAt?: number;
+  confirmedAt?: number;
+  runnerSource?: AgentTriggerSource;
+};
+
+export type ActivityLogEntry = {
+  id: string;
+  source: AgentTriggerSource;
+  kind: "cycle" | "intent" | "tx" | "risk" | "runner";
+  status: ChainActivityStatus;
+  message: string;
+  timestamp: number;
+  market?: MarketSymbol;
+  txHash?: string;
 };
 
 export type SimulationState = {
@@ -70,6 +101,7 @@ export type SimulationState = {
   lastSignal: StrategySignal | null;
   risk: RiskStatus;
   trades: TradeRecord[];
+  activityLog: ActivityLogEntry[];
   feed: Array<{ id: string; tone: "info" | "good" | "bad"; message: string; timestamp: number }>;
   pnlSeries: Array<{ index: number; pnl: number }>;
   monteCarlo: {
@@ -105,6 +137,9 @@ export type SimulationState = {
     biggestWin: number;
     globalRank: number;
     outperformDelta: number;
+    lastRunnerAt: number | null;
+    lastRunnerSource: AgentTriggerSource | "idle";
+    cycleCount: number;
   };
 };
 
@@ -125,4 +160,8 @@ export type AutoBotState = {
   totalSubmitted: number;
   signerAddress: string;
   pendingCount: number;
+  lastTriggerSource: AgentTriggerSource | "idle";
+  lastCycleStartedAt: number | null;
+  lastCycleCompletedAt: number | null;
+  cycleCount: number;
 };

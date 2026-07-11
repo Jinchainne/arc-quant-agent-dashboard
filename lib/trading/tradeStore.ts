@@ -11,6 +11,7 @@ import type {
 export const tradeStore: {
   markets: Record<MarketSymbol, { timestamp: number; price: number }[]>;
   trades: TradeRecord[];
+  activityLog: SimulationState["activityLog"];
   feed: Array<{ id: string; tone: "info" | "good" | "bad"; message: string; timestamp: number }>;
   pnlSeries: Array<{ index: number; pnl: number }>;
   monteCarlo: SimulationState["monteCarlo"];
@@ -21,6 +22,7 @@ export const tradeStore: {
 } = {
   markets: createInitialMarketState(),
   trades: [],
+  activityLog: [],
   feed: [],
   pnlSeries: [],
   monteCarlo: {
@@ -54,6 +56,10 @@ export const tradeStore: {
     totalPrepared: 0,
     totalSubmitted: 0,
     signerAddress: "",
-    pendingCount: 0
+    pendingCount: 0,
+    lastTriggerSource: "idle",
+    lastCycleStartedAt: null,
+    lastCycleCompletedAt: null,
+    cycleCount: 0
   }
 };

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
+    "agent:once": "tsx scripts/agent-runner.ts --once",
+    "agent:runner": "tsx scripts/agent-runner.ts",
     "arc:check": "node scripts/check-arc-config.mjs",
     "arc:refresh-docs": "node scripts/refresh-arc-docs.mjs",
     "arc:seed": "node scripts/seed-sim-data.mjs",

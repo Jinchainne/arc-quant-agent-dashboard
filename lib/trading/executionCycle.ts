@@ -1,4 +1,5 @@
 import { EXECUTION_PHASES, SIM_STARTING_USDC, SIM_TICK_MS } from "@/lib/arc/constants";
+import { appendActivityLog } from "@/lib/agent/activityLog";
 import { deriveAutoBotPlanner } from "@/lib/agent/autobotPlanner";
 import { fromUsdc6, toUsdc6 } from "@/lib/arc/usdc";
 import { submitTradeIntentWithBurner } from "@/lib/arc/serverExecutor";
@@ -9,7 +10,7 @@ import { summarizeTrades } from "@/lib/trading/pnlEngine";
 import { evaluateRisk, getConsecutiveLosses } from "@/lib/trading/riskEngine";
 import { generateStrategySignal } from "@/lib/trading/strategyEngine";
 import { tradeStore } from "@/lib/trading/tradeStore";
-import type { ExecutionMode, SimulationState, TradeRecord } from "@/lib/trading/types";
+import type { AgentTriggerSource, ExecutionMode, SimulationState, TradeRecord } from "@/lib/trading/types";
 
 function buildFeed(message: string, tone: "info" | "good" | "bad") {
   return {
@@ -64,6 +65,7 @@ export async function runExecutionCycle(input: {
   nativeBalance: string;
   erc20Balance: string;
   lastTxHash: string | null;
+  source: AgentTriggerSource;
 }) {
   const markets = advanceMarketState(tradeStore.markets ?? createInitialMarketState());
   tradeStore.markets = markets;
@@ -125,7 +127,10 @@ export async function runExecutionCycle(input: {
       mode: input.mode,
       timestamp: Date.now(),
       status: input.mode === "paper" ? "filled" : input.lastTxHash ? "intent-logged" : "intent-pending",
-      txHash: input.lastTxHash ?? undefined
+      txHash: input.lastTxHash ?? undefined,
+      chainStatus: input.mode === "paper" ? "confirmed" : input.lastTxHash ? "pending" : "prepared",
+      submittedAt: input.lastTxHash ? Date.now() : undefined,
+      runnerSource: input.source
     };
     tradeStore.trades = [...tradeStore.trades.slice(-199), trade];
   }
@@ -142,9 +147,17 @@ export async function runExecutionCycle(input: {
 
       if (tradeStore.autoBot.mode === "manual-wallet") {
         trade.status = "intent-pending";
+        trade.chainStatus = "prepared";
         tradeStore.autoBot.totalPrepared += 1;
         tradeStore.autoBot.lastError = null;
         tradeStore.autoBot.lastMessage = `Prepared ${trade.market} ${trade.side} intent. Manual wallet confirmation is required.`;
+        appendActivityLog({
+          source: input.source,
+          kind: "intent",
+          status: "prepared",
+          message: `Prepared ${trade.market} ${trade.side} for browser-wallet confirmation.`,
+          market: trade.market
+        });
       } else {
         try {
           const submitted = await submitTradeIntentWithBurner({
@@ -157,24 +170,76 @@ export async function runExecutionCycle(input: {
           });
           trade.status = "intent-logged";
           trade.txHash = submitted.hash;
+          trade.chainStatus = "confirmed";
+          trade.submittedAt = Date.now();
+          trade.confirmedAt = Date.now();
           tradeStore.autoBot.signerAddress = submitted.signerAddress;
           tradeStore.autoBot.totalPrepared += 1;
           tradeStore.autoBot.totalSubmitted += 1;
           tradeStore.autoBot.lastError = null;
           tradeStore.autoBot.lastMessage = `Burner submitted ${trade.market} ${trade.side} on Arc testnet.`;
+          appendActivityLog({
+            source: "burner-executor",
+            kind: "tx",
+            status: "confirmed",
+            message: `Burner confirmed ${trade.market} ${trade.side} on Arc testnet.`,
+            market: trade.market,
+            txHash: submitted.hash
+          });
         } catch (error) {
           trade.status = "intent-pending";
+          trade.chainStatus = "error";
           tradeStore.autoBot.totalPrepared += 1;
           tradeStore.autoBot.lastError =
             error instanceof Error ? error.message : "Burner signer could not write to Arc testnet.";
           tradeStore.autoBot.lastMessage = "Burner mode prepared an intent but could not submit it on-chain.";
+          appendActivityLog({
+            source: "burner-executor",
+            kind: "tx",
+            status: "error",
+            message: tradeStore.autoBot.lastError,
+            market: trade.market
+          });
         }
       }
     }
   }
+  finalizeExecutionCycle({
+    trade,
+    market,
+    signal,
+    risk,
+    rpcHealthy: input.rpcHealthy,
+    walletAddress: input.address,
+    nativeBalance: input.nativeBalance,
+    erc20Balance: input.erc20Balance,
+    chainId: input.chainId,
+    lastTxHash: input.lastTxHash
+  });
+  await persistTradeStore();
+  return buildSimulationStateSnapshot({
+    walletAddress: input.address,
+    nativeBalance: input.nativeBalance,
+    erc20Balance: input.erc20Balance,
+    rpcHealthy: input.rpcHealthy,
+    chainId: input.chainId,
+    lastTxHash: input.lastTxHash
+  });
+}
 
+function finalizeExecutionCycle(input: {
+  trade: TradeRecord | null;
+  market: string;
+  signal: NonNullable<SimulationState["lastSignal"]>;
+  risk: SimulationState["risk"];
+  rpcHealthy: boolean;
+  walletAddress: string;
+  nativeBalance: string;
+  erc20Balance: string;
+  chainId: number | null;
+  lastTxHash: string | null;
+}) {
   const finalSummary = summarizeTrades(tradeStore.trades);
-  const biggestWin = tradeStore.trades.reduce((max, entry) => Math.max(max, entry.pnl), 0);
   const pnlSeries = tradeStore.trades.map((entry, index) => ({
     index: index + 1,
     pnl: Number(
@@ -183,19 +248,19 @@ export async function runExecutionCycle(input: {
   }));
 
   tradeStore.feed = [
-    buildFeed(`Scan: ${market} tick processed against Arc RPC and local docs cache.`, "info"),
-    buildFeed(`Detect: ${signal.strategy} -> ${signal.action} @ ${signal.confidence}% confidence.`, "good"),
+    buildFeed(`Scan: ${input.market} tick processed against Arc RPC and local docs cache.`, "info"),
+    buildFeed(`Detect: ${input.signal.strategy} -> ${input.signal.action} @ ${input.signal.confidence}% confidence.`, "good"),
     buildFeed(
-      risk.approved
-        ? `Validate: risk approved. Paper/testnet flow can proceed.`
-        : `Validate: trade rejected. ${risk.flags.join(" ")}`,
-      risk.approved ? "good" : "bad"
+      input.risk.approved
+        ? "Validate: risk approved. Paper/testnet flow can proceed."
+        : `Validate: trade rejected. ${input.risk.flags.join(" ")}`,
+      input.risk.approved ? "good" : "bad"
     ),
-    ...(trade
+    ...(input.trade
       ? [
           buildFeed(
-            `Fill: ${trade.status} for ${trade.market} with ${fromUsdc6(trade.notionalUsdc6)} USDC.`,
-            trade.status === "intent-pending" ? "info" : "good"
+            `Fill: ${input.trade.status} for ${input.trade.market} with ${fromUsdc6(input.trade.notionalUsdc6)} USDC.`,
+            input.trade.status === "intent-pending" ? "info" : "good"
           )
         ]
       : []),
@@ -204,50 +269,66 @@ export async function runExecutionCycle(input: {
       : []),
     buildFeed(
       `Settle: simulated PnL ${finalSummary.allTimePnl.toFixed(2)} USDC. Phase ${
-        risk.approved ? EXECUTION_PHASES[5] : EXECUTION_PHASES[2]
+        input.risk.approved ? EXECUTION_PHASES[5] : EXECUTION_PHASES[2]
       }.`,
-      risk.approved ? "good" : "info"
+      input.risk.approved ? "good" : "info"
     ),
     ...tradeStore.feed
   ].slice(0, 16);
 
-  tradeStore.lastSignal = signal;
-  tradeStore.risk = risk;
+  tradeStore.lastSignal = input.signal;
+  tradeStore.risk = input.risk;
   tradeStore.pnlSeries = pnlSeries;
   tradeStore.monteCarlo = runMonteCarlo(tradeStore.trades);
-  const decision = buildDecision(signal, risk.approved);
-  const pace = Math.max(0, Number((finalSummary.allTimePnl / Math.max(1, tradeStore.trades.length || 1) * 12).toFixed(2)));
-  const horizonScore = Math.max(12, Math.min(99, Math.round((risk.score + signal.confidence) / 2)));
-  const globalRank = Math.max(1, 5000 - tradeStore.trades.length * 7);
-  const outperformDelta = Number((finalSummary.allTimePnl * 0.91).toFixed(0));
   const inFlight = tradeStore.trades.filter((entry) => entry.status === "intent-pending").length;
   tradeStore.autoBot.pendingCount = inFlight;
 
   const planner = deriveAutoBotPlanner({
     autoBot: tradeStore.autoBot,
-    risk,
-    signal,
-    latestTrade: trade,
+    risk: input.risk,
+    signal: input.signal,
+    latestTrade: input.trade,
     signerReady: tradeStore.autoBot.mode === "burner-key" ? Boolean(tradeStore.autoBot.signerAddress) : true
   });
   tradeStore.autoBot.objective = planner.objective;
   tradeStore.autoBot.lastDecision = planner.lastDecision;
   tradeStore.autoBot.nextAction = planner.nextAction;
   tradeStore.autoBot.blockedReason = planner.blockedReason;
+}
 
-  await persistTradeStore();
+export function buildSimulationStateSnapshot(input: {
+  walletAddress: string;
+  nativeBalance: string;
+  erc20Balance: string;
+  rpcHealthy: boolean;
+  chainId: number | null;
+  lastTxHash: string | null;
+}) {
+  const signal = tradeStore.lastSignal ?? generateStrategySignal("BTC/USDC-SIM", [100000, 100030, 99960], SIM_STARTING_USDC);
+  const risk = tradeStore.risk;
+  const finalSummary = summarizeTrades(tradeStore.trades);
+  const biggestWin = tradeStore.trades.reduce((max, entry) => Math.max(max, entry.pnl), 0);
+  const pace = Math.max(
+    0,
+    Number((finalSummary.allTimePnl / Math.max(1, tradeStore.trades.length || 1) * 12).toFixed(2))
+  );
+  const horizonScore = Math.max(12, Math.min(99, Math.round((risk.score + signal.confidence) / 2)));
+  const globalRank = Math.max(1, 5000 - tradeStore.trades.length * 7);
+  const outperformDelta = Number((finalSummary.allTimePnl * 0.91).toFixed(0));
+  const inFlight = tradeStore.trades.filter((entry) => entry.status === "intent-pending").length;
 
   return {
-    markets,
-    lastSignal: signal,
+    markets: tradeStore.markets,
+    lastSignal: tradeStore.lastSignal,
     risk,
     trades: tradeStore.trades,
+    activityLog: tradeStore.activityLog,
     feed: tradeStore.feed,
-    pnlSeries,
+    pnlSeries: tradeStore.pnlSeries,
     monteCarlo: tradeStore.monteCarlo,
-    decision,
+    decision: buildDecision(signal, risk.approved),
     stats: {
-      walletAddress: input.address,
+      walletAddress: input.walletAddress,
       nativeBalance: input.nativeBalance,
       erc20Balance: input.erc20Balance,
       allTimePnl: finalSummary.allTimePnl,
@@ -265,7 +346,10 @@ export async function runExecutionCycle(input: {
       inFlight,
       biggestWin,
       globalRank,
-      outperformDelta
+      outperformDelta,
+      lastRunnerAt: tradeStore.autoBot.lastCycleCompletedAt,
+      lastRunnerSource: tradeStore.autoBot.lastTriggerSource,
+      cycleCount: tradeStore.autoBot.cycleCount
     }
   } satisfies SimulationState;
 }

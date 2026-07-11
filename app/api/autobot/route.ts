@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { appendActivityLog } from "@/lib/agent/activityLog";
 import { getBurnerSignerAddress } from "@/lib/arc/serverExecutor";
 import { persistTradeStore, reloadTradeStore } from "@/lib/trading/persistence";
 import { tradeStore } from "@/lib/trading/tradeStore";
@@ -51,9 +52,20 @@ export async function POST(request: Request) {
 
     trade.status = "intent-logged";
     trade.txHash = body.txHash;
+    trade.chainStatus = "pending";
+    trade.submittedAt = Date.now();
+    trade.runnerSource = "manual-wallet";
     tradeStore.autoBot.totalSubmitted += 1;
     tradeStore.autoBot.lastError = null;
     tradeStore.autoBot.lastMessage = `Manual wallet confirmed ${trade.market} ${trade.side} on Arc testnet.`;
+    appendActivityLog({
+      source: "manual-wallet",
+      kind: "tx",
+      status: "submitted",
+      message: `Browser wallet submitted ${trade.market} ${trade.side} to Arc testnet.`,
+      market: trade.market,
+      txHash: body.txHash
+    });
     await persistTradeStore();
 
     return NextResponse.json({ ok: true, message: "Pending auto intent confirmed." });
@@ -79,6 +91,10 @@ export async function POST(request: Request) {
     tradeStore.autoBot.lastDecision = "Planner reset completed.";
     tradeStore.autoBot.nextAction = "Arm the bot and wait for the next approved cycle.";
     tradeStore.autoBot.blockedReason = "";
+    tradeStore.autoBot.lastCycleStartedAt = null;
+    tradeStore.autoBot.lastCycleCompletedAt = null;
+    tradeStore.autoBot.lastTriggerSource = "idle";
+    tradeStore.autoBot.cycleCount = 0;
     tradeStore.risk = {
       approved: false,
       score: 72,

@@ -1,6 +1,7 @@
+import { ARC_EXPLORER_URL } from "@/lib/arc/constants";
 import { Card } from "@/components/ui/Card";
 import type { SimulationState } from "@/lib/trading/types";
-import { formatCurrency, formatCompactNumber } from "@/lib/utils/format";
+import { formatAddress, formatCurrency, formatCompactNumber } from "@/lib/utils/format";
 import { formatUtc } from "@/lib/utils/time";
 
 export function RecentTrades({ state }: { state: SimulationState | null }) {
@@ -19,15 +20,34 @@ export function RecentTrades({ state }: { state: SimulationState | null }) {
           </div>
         ) : null}
         {trades.map((trade) => (
-          <div key={trade.id} className="grid grid-cols-[84px_1fr_90px_88px] gap-3 border border-terminal-border px-3 py-2">
+          <div key={trade.id} className="grid grid-cols-[72px_1.1fr_88px_88px_90px] gap-3 border border-terminal-border px-3 py-2">
             <div className="text-terminal-muted">{formatUtc(trade.timestamp).slice(11, 19)}</div>
             <div className="text-terminal-text">
-              {trade.market} {trade.side} {trade.status}
+              <div>
+                {trade.market} {trade.side} {trade.status}
+              </div>
+              <div className="mt-1 text-[11px] text-terminal-muted">
+                {trade.chainStatus ?? "simulated"}{trade.txHash ? ` • ${formatAddress(trade.txHash)}` : ""}
+              </div>
             </div>
             <div className={trade.pnl >= 0 ? "text-terminal-positive" : "text-terminal-negative"}>
               {formatCurrency(trade.pnl)}
             </div>
             <div className="text-right text-terminal-muted">{formatCompactNumber(Number(trade.notionalUsdc6) / 1e6)} USDC</div>
+            <div className="text-right text-terminal-muted">
+              {trade.txHash ? (
+                <a
+                  className="text-terminal-accent underline-offset-2 hover:underline"
+                  href={`${ARC_EXPLORER_URL}/tx/${trade.txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open tx
+                </a>
+              ) : (
+                "No tx"
+              )}
+            </div>
           </div>
         ))}
       </div>

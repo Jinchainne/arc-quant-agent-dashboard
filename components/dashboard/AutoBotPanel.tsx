@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { logTradeIntentWithBrowserWallet } from "@/lib/arc/wallet";
 import { formatAddress } from "@/lib/utils/format";
+import { formatUtc } from "@/lib/utils/time";
 
 type AutoBotConfig = {
   enabled: boolean;
@@ -25,6 +26,10 @@ type AutoBotConfig = {
   totalSubmitted: number;
   signerAddress: string;
   pendingCount: number;
+  lastTriggerSource: string;
+  lastCycleStartedAt: number | null;
+  lastCycleCompletedAt: number | null;
+  cycleCount: number;
   latestPending: {
     id: string;
     market: string;
@@ -237,9 +242,15 @@ export function AutoBotPanel({ defaultLedgerAddress, walletConnected, onRefresh 
       </div>
       <div className="mt-4 grid gap-2 text-sm">
         <Row label="Status" value={config.enabled ? "Armed" : "Paused"} />
+        <Row label="Runner Source" value={config.lastTriggerSource} />
         <Row label="Prepared" value={`${config.totalPrepared}`} />
         <Row label="Submitted" value={`${config.totalSubmitted}`} />
         <Row label="Pending" value={`${config.pendingCount}`} />
+        <Row label="Cycle Count" value={`${config.cycleCount}`} />
+        <Row
+          label="Last Cycle"
+          value={config.lastCycleCompletedAt ? formatUtc(config.lastCycleCompletedAt).slice(11, 19) : "Waiting"}
+        />
         <Row
           label="Signer"
           value={
@@ -279,6 +290,11 @@ export function AutoBotPanel({ defaultLedgerAddress, walletConnected, onRefresh 
       <div className="mt-3 border border-terminal-border bg-terminal-panelAlt p-3 text-xs text-terminal-text">
         {message}
       </div>
+      {config.enabled && config.lastCycleCompletedAt && Date.now() - config.lastCycleCompletedAt > config.cooldownMs * 4 ? (
+        <div className="mt-2 border border-terminal-negative/40 bg-[#f7dfd7] px-3 py-2 text-xs text-terminal-negative">
+          Runner looks stale. Start `npm run agent:runner` locally or verify the Vercel cron is active.
+        </div>
+      ) : null}
       <div className="mt-3 grid gap-2 text-[11px] text-terminal-muted md:grid-cols-2">
         <div className="border border-terminal-border bg-terminal-panelAlt px-3 py-2">
           `Browser Wallet Mode`

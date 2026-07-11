@@ -4,6 +4,7 @@ import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { AgentConsole } from "@/components/dashboard/AgentConsole";
 import { AutoBotPanel } from "@/components/dashboard/AutoBotPanel";
+import { ChainActivityPanel } from "@/components/dashboard/ChainActivityPanel";
 import { ContractPanel } from "@/components/dashboard/ContractPanel";
 import { ExecutionCycle } from "@/components/dashboard/ExecutionCycle";
 import { LiveFeed } from "@/components/dashboard/LiveFeed";
@@ -372,6 +373,9 @@ export default function Page() {
             </div>
             <div className="md:col-span-2 xl:col-span-1">
               <LiveFeed state={liveState} />
+            </div>
+            <div className="md:col-span-2 xl:col-span-1">
+              <ChainActivityPanel state={liveState} />
             </div>
             <div className="md:col-span-2 xl:col-span-1 border border-terminal-border bg-terminal-panel p-4 text-sm leading-7 text-terminal-muted">
               <p>Arc chain target: {ARC_CHAIN_ID}</p>

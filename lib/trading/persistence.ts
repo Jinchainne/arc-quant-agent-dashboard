@@ -15,6 +15,7 @@ type PersistedTradeRecord = Omit<TradeRecord, "notionalUsdc6"> & {
 type PersistedStore = {
   markets: typeof tradeStore.markets;
   trades: PersistedTradeRecord[];
+  activityLog: typeof tradeStore.activityLog;
   feed: typeof tradeStore.feed;
   pnlSeries: typeof tradeStore.pnlSeries;
   monteCarlo: SimulationState["monteCarlo"];
@@ -36,6 +37,7 @@ function serialize() {
       ...trade,
       notionalUsdc6: trade.notionalUsdc6.toString()
     })),
+    activityLog: tradeStore.activityLog,
     feed: tradeStore.feed,
     pnlSeries: tradeStore.pnlSeries,
     monteCarlo: tradeStore.monteCarlo,
@@ -66,6 +68,7 @@ async function loadTradeStore(force = false) {
       ...trade,
       notionalUsdc6: BigInt(trade.notionalUsdc6)
     }));
+    tradeStore.activityLog = payload.activityLog ?? [];
     tradeStore.feed = payload.feed ?? [];
     tradeStore.pnlSeries = payload.pnlSeries ?? [];
     tradeStore.monteCarlo = payload.monteCarlo ?? tradeStore.monteCarlo;
