@@ -15,7 +15,7 @@ export function StrategyDecisionTree({ state, beat = 0 }: { state: SimulationSta
         <p className="text-terminal-accent">Edge Conf {decision?.edgeConfidence.toFixed(1) ?? "--"}%</p>
       </div>
       <div className="mt-4 overflow-x-auto">
-        <svg viewBox="0 0 740 220" className="min-w-[720px]">
+        <svg viewBox="0 0 820 220" className="min-w-[800px]">
           {decision?.edges.map((edge) => {
             const from = decision.nodes.find((node) => node.id === edge.from);
             const to = decision.nodes.find((node) => node.id === edge.to);

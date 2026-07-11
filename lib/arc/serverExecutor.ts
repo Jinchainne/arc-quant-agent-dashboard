@@ -2,6 +2,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, createWalletClient, http, isAddress } from "viem";
 
 import { arcTradeIntentLedgerAbi } from "@/lib/arc/intentLedger";
+import { arcTradeIntentLedgerArtifact } from "@/lib/arc/intentLedgerArtifact";
 import { arcTestnet } from "@/lib/arc/chain";
 import { ARC_RPC_URL } from "@/lib/arc/constants";
 
@@ -71,5 +72,77 @@ export async function submitTradeIntentWithBurner(input: {
   return {
     hash,
     signerAddress: account.address
+  };
+}
+
+export async function deployTradeIntentLedgerWithBurner() {
+  const account = privateKeyToAccount(getBurnerPrivateKey());
+  const walletClient = createWalletClient({
+    account,
+    chain: arcTestnet,
+    transport: http(ARC_RPC_URL)
+  });
+  const publicClient = createPublicClient({
+    chain: arcTestnet,
+    transport: http(ARC_RPC_URL)
+  });
+  const fees = await publicClient.estimateFeesPerGas();
+  const gas = await publicClient.estimateGas({
+    account: account.address,
+    data: arcTradeIntentLedgerArtifact.bytecode
+  });
+
+  const hash = await walletClient.sendTransaction({
+    account,
+    chain: arcTestnet,
+    data: arcTradeIntentLedgerArtifact.bytecode,
+    gas,
+    maxFeePerGas: fees.maxFeePerGas ? bumpBigInt(fees.maxFeePerGas, 15n, 10n) : undefined,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas ? bumpBigInt(fees.maxPriorityFeePerGas, 15n, 10n) : undefined
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (!receipt.contractAddress) {
+    throw new Error("Burner deployment receipt did not include a contract address.");
+  }
+
+  return {
+    hash,
+    contractAddress: receipt.contractAddress,
+    signerAddress: account.address
+  };
+}
+
+export async function getArcTxStatus(hash: `0x${string}`) {
+  const publicClient = createPublicClient({
+    chain: arcTestnet,
+    transport: http(ARC_RPC_URL)
+  });
+
+  const [tx, receipt] = await Promise.all([
+    publicClient.getTransaction({ hash }).catch(() => null),
+    publicClient.getTransactionReceipt({ hash }).catch(() => null)
+  ]);
+
+  if (!tx) {
+    return {
+      found: false,
+      status: "missing" as const,
+      contractAddress: null
+    };
+  }
+
+  if (!receipt) {
+    return {
+      found: true,
+      status: "pending" as const,
+      contractAddress: null
+    };
+  }
+
+  return {
+    found: true,
+    status: receipt.status === "success" ? ("confirmed" as const) : ("reverted" as const),
+    contractAddress: receipt.contractAddress ?? null
   };
 }
