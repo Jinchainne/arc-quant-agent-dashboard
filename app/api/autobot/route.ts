@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   await reloadTradeStore();
 
   const body = (await request.json()) as {
-    action?: "save" | "confirm-pending" | "reset-stats";
+    action?: "save" | "confirm-pending" | "reset-stats" | "reset-strategy";
     enabled?: boolean;
     mode?: "manual-wallet" | "burner-key";
     ledgerAddress?: string;
@@ -65,6 +65,23 @@ export async function POST(request: Request) {
     tradeStore.autoBot.lastMessage = "Auto bot counters reset.";
     await persistTradeStore();
     return NextResponse.json({ ok: true, message: "Auto bot counters reset." });
+  }
+
+  if (body.action === "reset-strategy") {
+    tradeStore.trades = tradeStore.trades.filter((trade) => trade.status === "intent-logged");
+    tradeStore.autoBot.totalPrepared = 0;
+    tradeStore.autoBot.totalSubmitted = 0;
+    tradeStore.autoBot.lastRunAt = null;
+    tradeStore.autoBot.lastError = null;
+    tradeStore.autoBot.lastMessage = "Strategy state reset. Loss streak and pending intents cleared.";
+    tradeStore.risk = {
+      approved: false,
+      score: 72,
+      phase: "Scan",
+      flags: []
+    };
+    await persistTradeStore();
+    return NextResponse.json({ ok: true, message: "Strategy state reset." });
   }
 
   tradeStore.autoBot = {

@@ -139,6 +139,27 @@ export function AutoBotPanel({ defaultLedgerAddress, walletConnected, onRefresh 
     }
   }
 
+  async function resetStrategyState() {
+    setPending(true);
+    try {
+      const response = await fetch("/api/autobot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reset-strategy"
+        })
+      });
+      const payload = (await response.json()) as { message?: string };
+      setMessage(payload.message ?? "Strategy state reset.");
+      await loadConfig();
+      await onRefresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Strategy reset failed.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   if (!config) {
     return (
       <Card className="p-4 text-sm text-terminal-muted">
@@ -227,6 +248,9 @@ export function AutoBotPanel({ defaultLedgerAddress, walletConnected, onRefresh 
           disabled={pending || config.mode !== "manual-wallet" || !config.latestPending}
         >
           Confirm Latest Pending
+        </Button>
+        <Button variant="danger" onClick={resetStrategyState} disabled={pending}>
+          Reset Strategy State
         </Button>
       </div>
       <div className="mt-3 border border-terminal-border bg-terminal-panelAlt p-3 text-xs text-terminal-text">
