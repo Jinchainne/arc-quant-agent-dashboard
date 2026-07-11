@@ -1,73 +1,138 @@
 # Arc Quant Agent Dashboard
 
-Arc Quant Agent Dashboard is a local-first Arc Testnet builder agent: a realtime terminal-style dashboard with an execution planner, persistent memory, browser-wallet mode, burner mode, and optional autonomous testnet intent submission.
+Arc Quant Agent Dashboard is a local-first Arc Testnet builder agent: a realtime quant-terminal UI that can simulate signals, plan execution, persist state, prepare testnet intents, and optionally submit Arc testnet contract writes through either a browser wallet or a burner signer.
 
-This repo is designed for builders, demos, hackathons, and local prototyping. It is not a production trading bot.
+This project is built for builders, demos, hackathons, and testnet experimentation. It is not a mainnet trading system and it does not claim real profit.
 
-## What this tool does
+## Overview
 
-- Runs a live Arc Testnet dashboard with quant-terminal style panels
-- Simulates strategy signals, risk checks, fills, PnL, and Monte Carlo outputs
-- Connects to an injected browser wallet for Arc Testnet checks
-- Routes agent questions to local Ollama or Groq
-- Supports optional browser-wallet confirmation for testnet contract intent logging
-- Supports auto bot execution on Arc testnet with either manual wallet confirmation or burner-key signing
-- Supports a local 24/7 worker runner and a Vercel cron-driven runner path
-- Persists local simulation state to disk
-- Maintains an agent objective, planner output, blocker reason, and next action for each cycle
+- Realtime Arc-style terminal dashboard
+- Strategy engine with signal, risk, execution, and settlement phases
+- Persistent local memory in `data/sim-state.json`
+- Browser wallet flow for manual Arc testnet confirmation
+- Burner mode for autonomous testnet-only submission
+- Local 24/7 worker runner
+- Hosted scheduler path using GitHub Actions -> Vercel `/api/runner`
+- Agent console backed by Ollama locally or Groq in hosted mode
+- On-chain activity tape for intents, tx submission, pending state, and confirmation
 
-## What this tool does not do
+## Builder Value
 
-- No mainnet trading
-- No hidden auto-trading
-- No centralized exchange execution
-- No mainnet private key execution flow
-- No promise of real profit
-- No real-money automation
+This repo is designed to show a complete builder story on Arc:
 
-## Builder agent model
+- a visible dashboard
+- a strategy loop
+- a planner layer
+- persistence
+- wallet awareness
+- contract deployment and write flow
+- a background runner
+- a hosted scheduler path
 
-This repo now behaves as a small execution agent with four layers:
+That makes it suitable for submissions where you need to show both product polish and working testnet interaction.
+
+## What The Agent Does
+
+The agent works in four layers:
 
 1. `Simulation layer`
-- Always available
-- Generates signals, fills, PnL, feed, chart activity
-- Produces no blockchain transaction
+Generates market movement, signals, fills, feed motion, PnL, Monte Carlo, and execution-cycle state.
 
 2. `Intent layer`
-- Stores an intent locally
-- Useful for proving the workflow and UI state transitions
-- Still does not produce an on-chain transaction by itself
+Stores a testnet intent locally so the workflow can be demonstrated even before an on-chain write.
 
 3. `Contract layer`
-- Requires browser wallet confirmation
-- Requires Arc Testnet contract address
-- Can produce a real Arc Testnet transaction hash
+Writes to `ArcTradeIntentLedger` on Arc Testnet when contract mode is enabled and the write path is configured.
 
 4. `Planner layer`
-- Tracks the current objective
-- Explains the latest decision
-- Emits the next recommended action
-- Surfaces blockers such as missing signer, missing ledger, pending intent, or risk rejection
+Tracks objective, latest decision, next action, blockers, runner source, pending count, and recent cycle state.
 
-If you are running the tool locally and do not see a tx hash, the most common reason is simple:
+## What This Is Not
 
-- you are still in `paper mode`, or
-- contract mode is disabled by env, or
-- no contract address is configured, or
-- wallet has not confirmed the transaction
+- No mainnet execution
+- No centralized exchange integration
+- No hidden auto-trading
+- No profit guarantee
+- No claim that testnet behavior implies production readiness
+
+## Tech Stack
+
+- Next.js App Router
+- React 19
+- Tailwind CSS
+- Recharts
+- viem
+- Ollama or Groq for agent responses
+- GitHub Actions for hosted runner scheduling
+- Vercel for hosted UI/API
+
+## Arc Testnet Reference
+
+- Network: `Arc Testnet`
+- Chain ID: `5042002`
+- RPC: `https://rpc.testnet.arc.network`
+- Explorer: `https://testnet.arcscan.app`
+- ERC-20 USDC: `0x3600000000000000000000000000000000000000`
+
+## Decimal Rules
+
+This repo follows an important Arc convention:
+
+- native USDC gas and `msg.value` use `18 decimals`
+- ERC-20 USDC balances and token actions use `6 decimals`
+
+Examples:
+
+- native `1 USDC` gas unit => `1e18`
+- ERC-20 `1 USDC` => `1e6`
+
+Never mix them.
+
+## Project Features
+
+### Dashboard
+
+- Terminal-style layout
+- Ticker tape
+- Market chart
+- Execution cycle strip
+- Strategy decision tree
+- Robustness matrix
+- PnL growth chart
+- Monte Carlo panel
+- Recent trades panel
+- On-chain activity panel
+
+### Agent
+
+- Objective-driven auto bot
+- Planner output
+- Next-action suggestion
+- Blocker reporting
+- Manual reset of strategy state
+- Local persistence across restarts
+
+### Execution
+
+- `paper` mode
+- `testnet-intent` mode
+- `testnet-contract` mode
+- Browser Wallet Mode
+- Burner Mode
+- Local worker runner
+- Hosted runner endpoint
 
 ## Requirements
 
-- Node.js 20+ or newer
+- Node.js 20+
 - npm
-- 16GB RAM recommended
-- Ollama installed locally if you want local models
-- Browser wallet such as MetaMask or Rabby for Arc Testnet flows
+- 16GB RAM recommended for a smooth local experience
+- MetaMask, Rabby, or another injected EVM wallet for browser-wallet mode
+- Ollama if you want local model responses
 
-## Local model setup
+## Local Model Setup
 
-Pull the recommended models:
+Recommended pulls:
 
 ```bash
 ollama pull qwen2.5-coder:7b
@@ -80,21 +145,21 @@ Check Ollama:
 curl http://localhost:11434/api/tags
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 Invoke-RestMethod http://localhost:11434/api/tags
 ```
 
-## Environment setup
+## Environment Setup
 
-Copy:
+Create a local env file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Important model envs:
+Core model envs:
 
 ```env
 AI_API_KEY=
@@ -110,13 +175,37 @@ LOCAL_EMBED_MODEL=nomic-embed-text
 AGENT_PROVIDER=auto
 ```
 
-How routing works:
+Arc envs:
 
-- local app + reachable Ollama: prefers Ollama
-- hosted app on Vercel: cannot use your local Ollama
-- hosted app needs Groq env configured to answer model requests
+```env
+NEXT_PUBLIC_ARC_CHAIN_ID=5042002
+NEXT_PUBLIC_ARC_RPC_URL=https://rpc.testnet.arc.network
+NEXT_PUBLIC_ARC_EXPLORER_URL=https://testnet.arcscan.app
+NEXT_PUBLIC_ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
+```
 
-## Run locally
+Testnet execution envs:
+
+```env
+PAPER_TRADING_ONLY=false
+REAL_TRADING_DISABLED=false
+NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true
+NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=0x...
+AUTO_BURNER_PRIVATE_KEY=0x...
+RUNNER_SECRET=...
+CRON_SECRET=...
+AGENT_RUNNER_INTERVAL_MS=12000
+```
+
+Important notes:
+
+- restart the dev server after changing `.env.local`
+- use a disposable burner wallet for `AUTO_BURNER_PRIVATE_KEY`
+- do not use a mainnet private key here
+
+## Local Run
+
+Install and start:
 
 ```bash
 npm install
@@ -129,7 +218,9 @@ Open:
 http://localhost:3000
 ```
 
-To run the execution worker locally in a separate terminal:
+## Local 24/7 Worker
+
+Run the local worker in a second terminal:
 
 ```bash
 npm run agent:runner
@@ -141,264 +232,202 @@ Single cycle smoke test:
 npm run agent:once
 ```
 
-## Verification commands
+This is the best path when you want the bot to keep executing locally like a live demo.
+
+## Verification
+
+Before claiming the agent is ready, run:
 
 ```bash
-npm run typecheck
 npm run arc:check
+npm run typecheck
 npm run build
 ```
 
-## Core modes
+## Execution Modes
 
-### 1. Paper mode
+### 1. `paper`
 
-- Default mode
-- Creates simulated fills only
-- Updates simulated PnL and feed
-- Never creates a tx hash
-
-Use this when you want the dashboard to feel active and demo-ready without touching chain state.
-
-### 2. Testnet-intent mode
-
-- Creates a local intent record
-- Persists that record to `data/sim-state.json`
-- Shows progression in feed and recent trades
-- Still does not create an on-chain tx
-
-Use this when you want a stronger demo of workflow progression without actually writing to chain.
-
-### 3. Testnet-contract mode
-
-- Prepares a local intent
-- Prompts browser wallet confirmation
-- Writes to `ArcTradeIntentLedger` if configured correctly
-- Persists the returned tx hash locally
-
-This is the only mode that can create a visible Arc Testnet transaction hash.
-
-## Why you may not see a tx hash
-
-If the UI is running but no tx appears, check these in order:
-
-1. Are you still using `paper mode`?
-2. Did you switch to `testnet-contract mode`?
-3. Did you tick the confirmation checkbox?
-4. Is wallet actually connected to Arc Testnet?
-5. Did you set `NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS`?
-6. Did you disable the safety gates below?
-7. Did the wallet confirmation popup appear and did you confirm it?
-
-Required env changes for contract mode:
-
-```env
-PAPER_TRADING_ONLY=false
-REAL_TRADING_DISABLED=false
-NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true
-NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=0x...
-AUTO_BURNER_PRIVATE_KEY=0x...
-```
-
-After editing envs, restart the local dev server so Next.js reloads `.env.local`.
-
-If any of those are missing, you should expect:
-
+- simulation only
+- no local intent record required
 - no tx hash
-- no on-chain write
-- local simulation only
 
-## Auto bot modes
+### 2. `testnet-intent`
 
-The dashboard now supports two bot execution styles on Arc Testnet:
+- persists a local testnet intent
+- useful for showing execution flow
+- still no on-chain tx
 
-1. `Browser Wallet Mode`
-- auto bot prepares testnet intents as signals are approved
-- intents appear as pending
-- you confirm the latest pending intent with your browser wallet
+### 3. `testnet-contract`
 
-2. `Burner Mode`
-- auto bot prepares and submits testnet intents directly from the server
+- prepares a real contract write flow
+- requires contract mode enabled
+- requires ledger address
+- can create a visible Arc testnet transaction hash
+
+## Auto Bot Modes
+
+### Browser Wallet Mode
+
+- bot prepares pending testnet intents
+- user confirms the latest pending intent using injected wallet
+- good for demo safety and manual review
+
+### Burner Mode
+
+- bot signs and submits directly from the server
 - requires `AUTO_BURNER_PRIVATE_KEY`
-- use only a disposable testnet wallet
+- testnet only
+- use a disposable burner wallet only
 
-## 24/7 runner model
+## Runner Model
 
-There are now two real execution runner paths:
+There are two practical runner paths in this repo:
 
-1. `Local worker`
+### 1. Local worker
+
 - command: `npm run agent:runner`
-- loops continuously using `AGENT_RUNNER_INTERVAL_MS`
-- best choice when you want the bot to keep moving every few seconds on your own machine
+- loops continuously
+- fastest and closest to a live trading-bot demo
 
-2. `Hosted scheduler`
-- primary path in this repo is `.github/workflows/arc-runner.yml`
-- triggers `https://arc-quant-agent-dashboard.vercel.app/api/runner?force=1`
-- runs every 5 minutes on GitHub Actions
-- keeps the hosted demo advancing even on a Vercel Hobby account
+### 2. Hosted scheduler
 
-Optional:
-
-- if you later upgrade Vercel to a paid tier, you can also wire `/api/runner?force=1` into Vercel Cron
-- this repo keeps the runner endpoint ready for either scheduler source
+- GitHub Actions workflow: `.github/workflows/arc-runner.yml`
+- calls `https://arc-quant-agent-dashboard.vercel.app/api/runner?force=1`
+- good for keeping the hosted app active on a Vercel Hobby account
 
 Important behavior:
 
-- when auto bot is armed, the background runner becomes the main execution source
-- the dashboard still refreshes state, but runner metadata now shows whether cycles are really being executed
-- the `On-chain Activity` panel shows runner starts, prepared intents, tx submissions, pending status, and confirmations
+- the dashboard UI is not the runner itself
+- the background worker or scheduler is what advances real bot cycles
+- the `On-chain Activity` panel shows whether the runner is actually doing work
 
-## Agent controls
+## Contract Flow
 
-The `Auto Bot` panel is the core builder-agent interface:
+The contract used here is:
 
-- `Objective`
-  Agent goal for the next cycles
-- `Planner`
-  What the agent decided this cycle
-- `Next Action`
-  What the agent wants to do next
-- `Blocked By`
-  Current execution blocker, if any
-- `Reset Strategy State`
-  Clears loss streak and pending intent state so the planner can attempt fresh execution
+```text
+contracts/ArcTradeIntentLedger.sol
+```
 
-## Arc Testnet config
+The contract panel supports:
 
-- Network: `Arc Testnet`
-- Chain ID: `5042002`
-- RPC: `https://rpc.testnet.arc.network`
-- Explorer: `https://testnet.arcscan.app`
-- ERC-20 USDC address: `0x3600000000000000000000000000000000000000`
+- browser-wallet deployment
+- burner deployment
+- deployment tx status polling
+- ledger-address persistence
 
-## Decimals rule
-
-This is the most important data rule in the repo:
-
-- native USDC gas and `msg.value` use `18 decimals`
-- ERC-20 USDC `balance / transfer / approve / allowance` use `6 decimals`
-
-Never mix them.
-
-Examples:
-
-- native 1 USDC gas unit => `1e18`
-- ERC-20 1 USDC => `1e6`
-
-## Local persistence
-
-The tool stores:
-
-- simulation state in `data/sim-state.json`
-- wallet address in browser `localStorage`
-- selected market in browser `localStorage`
-
-This means:
-
-- recent trades survive app restart
-- testnet intent records remain visible locally
-- local dashboard state feels more like a persistent terminal
-
-## How to use the agent
-
-The `Agent Console` answers questions such as:
-
-- Explain USDC decimals
-- Explain current signal
-- Why was this trade rejected?
-- Check Arc config
-- Review this simulated trade
-
-Local behavior:
-
-- if Ollama is running and reachable, the local app can answer through Ollama
-- if Ollama fails and Groq is configured, it can fallback to Groq
-
-Hosted behavior:
-
-- Vercel cannot call your `localhost:11434`
-- to make the online app answer, you must set Groq env vars in Vercel
-
-## Recommended local demo flow
-
-For a smooth demo:
+## Recommended Local Demo Flow
 
 1. Start Ollama
 2. Run `npm run dev`
-3. Open `http://localhost:3000`
-4. Let the dashboard run for 10-20 seconds so feed/chart/pacing become lively
-5. Open `Agent Console` and ask an explanation question
-6. Connect wallet
-7. Try `testnet-intent mode` first
-8. If you have a deployed Arc Testnet ledger contract, switch to `testnet-contract mode`
+3. Run `npm run agent:runner` in another terminal
+4. Open the dashboard
+5. Wait a few cycles so feed, charts, and PnL become active
+6. Connect your browser wallet if you want browser-wallet mode
+7. Try `testnet-intent` first
+8. Then move to `testnet-contract`
+9. Use the `Contract Panel` to deploy or configure a ledger
+10. Watch `Recent Trades` and `On-chain Activity`
 
-## Recommended contract-mode test flow
+## Recommended Contract Test Flow
 
-1. Deploy `contracts/ArcTradeIntentLedger.sol` to Arc Testnet
-2. Put the deployed address in:
-
-```env
-NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=0x...
-```
-
-3. Set:
-
-```env
-PAPER_TRADING_ONLY=false
-REAL_TRADING_DISABLED=false
-NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true
-```
-
-4. Restart local dev server
-5. Connect wallet
-6. Switch wallet to Arc Testnet
-7. Either use the env-provided ledger address or deploy one directly from the new `Contract Panel`
-8. Choose `testnet-contract mode`
-9. Tick the confirmation checkbox
-10. Submit the mode check
-11. Confirm the wallet transaction
+1. Enable testnet contract mode in `.env.local`
+2. Set `NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS`
+3. Restart local dev server
+4. Connect browser wallet and switch to Arc Testnet if using manual confirmation
+5. Or configure burner mode for autonomous submission
+6. Arm the bot
+7. Observe:
+   - `Auto Bot`
+   - `Recent Trades`
+   - `On-chain Activity`
+   - explorer links in the UI
 
 Expected result:
 
-- local intent is prepared
-- ledger exists on Arc Testnet
-- wallet popup opens
-- tx hash is returned
-- recent trades and KPI panel can show the tx hash
+- local state advances
+- planner updates
+- pending or submitted intents appear
+- tx hashes become visible when chain write succeeds
 
-## Deploying to Vercel
+## Hosted Deployment
 
-Important:
+Hosted app:
 
-- Vercel deployment cannot reach your local Ollama instance
-- if you want hosted agent responses, configure Groq on Vercel
+- Vercel serves the UI and API routes
+- Vercel cannot access your local Ollama
+- hosted inference should use Groq or another reachable API provider
 
-Set these Vercel envs:
+Recommended Vercel envs:
 
 ```env
 AI_API_KEY=...
 AI_BASE_URL=https://api.groq.com/openai/v1
 AI_MODEL=llama-3.3-70b-versatile
 AGENT_PROVIDER=auto
-CRON_SECRET=...
+PAPER_TRADING_ONLY=false
+REAL_TRADING_DISABLED=false
+NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true
+NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=0x...
+AUTO_BURNER_PRIVATE_KEY=0x...
 RUNNER_SECRET=...
+CRON_SECRET=...
 ```
 
-For GitHub Actions scheduler, also add repository secrets:
+## GitHub Actions Scheduler
+
+The repo contains:
+
+```text
+.github/workflows/arc-runner.yml
+```
+
+Add these repository secrets:
 
 ```text
 ARC_RUNNER_URL=https://arc-quant-agent-dashboard.vercel.app/api/runner?force=1
 ARC_RUNNER_SECRET=<same value as RUNNER_SECRET on Vercel>
 ```
 
-Optional contract-mode envs for hosted demo:
+That gives you a hosted recurring runner without needing Vercel paid cron features.
 
-```env
-PAPER_TRADING_ONLY=false
-REAL_TRADING_DISABLED=false
-NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true
-NEXT_PUBLIC_TRADE_INTENT_LEDGER_ADDRESS=0x...
+## Persistence
+
+State is persisted in:
+
+```text
+data/sim-state.json
 ```
+
+This stores:
+
+- trades
+- feed
+- Monte Carlo output
+- planner state
+- auto bot state
+- activity log
+
+The browser also stores:
+
+- selected market
+- wallet address
+- ledger address
+- deploy tx hash
+
+## Main UI Panels
+
+- `Terminal Header`: session, wallet, chain, RPC, model
+- `Market Chart`: current selected market
+- `Execution Cycle`: active phase
+- `Strategy Decision Tree`: signal path and edge confidence
+- `Wallet Panel`: injected wallet status
+- `Contract Panel`: deploy and configure ledger
+- `Auto Bot`: objective, mode, counts, planner, blocker, runner metadata
+- `On-chain Activity`: tx lifecycle and runner activity
+- `Recent Trades`: local and chain-aware trade log
+- `Agent Console`: ask questions about config, risk, signals, and decimals
 
 ## Scripts
 
@@ -407,52 +436,90 @@ npm run dev
 npm run build
 npm run start
 npm run typecheck
+npm run agent:once
+npm run agent:runner
 npm run arc:check
 npm run arc:refresh-docs
 npm run arc:seed
 npm run arc:embed-docs
+npm run arc:build-ledger
 ```
 
 ## Troubleshooting
 
-### The dashboard runs but I see no tx
+### No tx hash appears
 
-Most likely you are still in a safe mode.
+Check these first:
 
-Check:
+1. Are you still in `paper` mode?
+2. Are safety envs still blocking contract writes?
+3. Is `NEXT_PUBLIC_ENABLE_TESTNET_CONTRACT_MODE=true`?
+4. Is the ledger address set?
+5. Did the browser wallet confirmation appear?
+6. Is the burner key configured if using burner mode?
 
-- `paper mode` does not create tx
-- `testnet-intent mode` does not create tx
-- only `testnet-contract mode` can create tx
+### Dashboard looks alive but bot is not really running
 
-### The online site says Ollama is unavailable
+The UI has animation even without a background worker.
+
+To make the bot actually advance cycles:
+
+- locally: run `npm run agent:runner`
+- hosted: verify GitHub Actions scheduler is active
+
+### Wallet is disconnected but backend bot still works
+
+That is expected in burner mode.
+
+- browser wallet state belongs to the viewer
+- burner signer belongs to the backend runner
+
+The UI now keeps those two identities separate.
+
+### Hosted app says Ollama is unavailable
 
 That is expected.
 
-Vercel cannot access your local Ollama.
+Vercel cannot call your local Ollama instance.
 
-Use one of these:
+Use:
 
-- run locally with `npm run dev`
-- configure Groq env on Vercel
+- local app for Ollama
+- Groq for hosted inference
 
-### Wallet shows connected but data looks stale
+### Strategy blocks every cycle
 
-Use `Clear Local State` in the wallet panel and reconnect.
+Open `Auto Bot` and check:
 
-### Agent answers incorrectly about decimals
+- `Planner`
+- `Next Action`
+- `Blocked By`
 
-Use local docs refresh and ask again:
+If needed:
 
-```bash
-npm run arc:refresh-docs
-```
+- lower risk conditions in config
+- confirm pending intents
+- deploy/configure a ledger
+- use `Reset Strategy State`
 
 ## Safety
 
-- Testnet only
-- Browser wallet confirmation required
-- Optional burner-key mode is testnet-only and should use a disposable wallet
-- No mainnet
-- No real-profit claim
-- Simulation-first by default
+- testnet only
+- browser-wallet mode is confirmation-first
+- burner mode is testnet-only
+- use a disposable burner signer
+- do not use mainnet keys
+- do not treat simulation PnL as real performance
+
+## Submission Note
+
+If you are using this repo for a builder submission, the strongest demo sequence is:
+
+1. show the live dashboard
+2. show planner + blocker intelligence
+3. show the contract panel
+4. show the auto bot in burner or browser-wallet mode
+5. show recent trades and on-chain activity
+6. open Arc explorer links from the UI
+
+That demonstrates both product UX and working Arc testnet interaction.
