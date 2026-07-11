@@ -115,7 +115,7 @@ export function TradeControls({ onRefresh, lastSignalMarket, ledgerAddress, sign
         >
           <option value="paper">paper mode</option>
           <option value="testnet-intent">testnet-intent mode</option>
-          <option value="testnet-contract">testnet-contract mode</option>
+          <option value="testnet-contract">testnet-contract mode (browser/burner)</option>
         </select>
         <Input value={notional} onChange={(event) => setNotional(event.target.value)} placeholder="USDC notional" />
         <label className="flex items-center gap-2 border border-terminal-border px-3 py-2 text-xs text-terminal-muted">
@@ -145,7 +145,7 @@ export function TradeControls({ onRefresh, lastSignalMarket, ledgerAddress, sign
         <div className="border border-terminal-border bg-terminal-panelAlt px-3 py-2">
           `testnet-contract mode`
           <br />
-          Requires wallet connect, confirmation checkbox, deployed ledger address, and safety flags disabled in `.env`.
+          Uses a deployed ledger on Arc testnet through either Browser Wallet Mode or Burner Mode.
         </div>
       </div>
       <div className="mt-4 border border-terminal-border bg-terminal-panelAlt p-3 text-xs text-terminal-text">{message}</div>

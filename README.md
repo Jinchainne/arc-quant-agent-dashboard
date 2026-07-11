@@ -190,12 +190,12 @@ If any of those are missing, you should expect:
 
 The dashboard now supports two bot execution styles on Arc Testnet:
 
-1. `Auto + manual wallet confirm`
+1. `Browser Wallet Mode`
 - auto bot prepares testnet intents as signals are approved
 - intents appear as pending
 - you confirm the latest pending intent with your browser wallet
 
-2. `Auto + burner private key`
+2. `Burner Mode`
 - auto bot prepares and submits testnet intents directly from the server
 - requires `AUTO_BURNER_PRIVATE_KEY`
 - use only a disposable testnet wallet
